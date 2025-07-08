@@ -1,0 +1,172 @@
+'use client';
+
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+
+import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Banknote, Camera, MapPin, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+const formSchema = z.object({
+  fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
+  mobileNumber: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit mobile number.' }),
+  panCardNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Please enter a valid PAN card number.' }),
+  address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
+  mpin: z.string().regex(/^\d{4}$/, { message: 'MPIN must be a 4-digit number.' }),
+  profilePicture: z.any().refine((file) => file?.length == 1, 'Profile picture is required.'),
+});
+
+export function RegisterForm() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          setLocationError(null);
+        },
+        (error) => {
+          setLocationError('Could not get location. Please enable location services.');
+        }
+      );
+    } else {
+      setLocationError('Geolocation is not supported by your browser.');
+    }
+  }, []);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      fullName: '',
+      mobileNumber: '',
+      panCardNumber: '',
+      address: '',
+      mpin: '',
+    },
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPreviewUrl(URL.createObjectURL(file));
+      form.setValue('profilePicture', e.target.files);
+    }
+  };
+
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!location) {
+        toast({
+            variant: "destructive",
+            title: "Location Required",
+            description: "We need your location to proceed with registration. Please enable location services.",
+        });
+        return;
+    }
+    setIsSubmitting(true);
+    // Mock registration logic
+    console.log('Registration values:', { ...values, location, timestamp: new Date() });
+
+    // Simulate API call
+    setTimeout(() => {
+        toast({
+            title: 'Registration Successful',
+            description: 'Your account has been created. Please log in.',
+        });
+        router.push('/login');
+        setIsSubmitting(false);
+    }, 2000);
+  }
+
+  return (
+    <Card className="w-full max-w-lg shadow-2xl my-8">
+      <CardHeader className="text-center">
+        <Link href="/" className="flex items-center justify-center mb-4">
+            <Banknote className="h-8 w-8 text-primary" />
+            <span className="ml-2 text-2xl font-bold font-headline">VeriBank</span>
+        </Link>
+        <CardTitle className="text-2xl font-headline">Create Your Account</CardTitle>
+        <CardDescription>Join the future of banking in just a few steps.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="profilePicture"
+              render={({ field }) => (
+                <FormItem className="flex flex-col items-center">
+                  <FormLabel className="cursor-pointer">
+                    <div className="w-24 h-24 rounded-full bg-muted border-2 border-dashed flex items-center justify-center text-muted-foreground hover:bg-muted/80 transition-colors">
+                      {previewUrl ? (
+                        <Image src={previewUrl} alt="Profile preview" width={96} height={96} className="rounded-full object-cover w-full h-full" />
+                      ) : (
+                        <Camera className="w-8 h-8" />
+                      )}
+                    </div>
+                  </FormLabel>
+                  <FormControl>
+                    <Input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="fullName" render={({ field }) => (
+                    <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="mobileNumber" render={({ field }) => (
+                    <FormItem><FormLabel>Mobile Number</FormLabel><FormControl><Input placeholder="9876543210" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+            </div>
+            <FormField control={form.control} name="panCardNumber" render={({ field }) => (
+                <FormItem><FormLabel>PAN Card Number</FormLabel><FormControl><Input placeholder="ABCDE1234F" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="address" render={({ field }) => (
+                <FormItem><FormLabel>Address</FormLabel><FormControl><Textarea placeholder="123 Main St, Anytown..." {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="mpin" render={({ field }) => (
+                <FormItem><FormLabel>4-Digit MPIN</FormLabel><FormControl><Input type="password" placeholder="••••" maxLength={4} {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            
+            <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary"/>
+                {location ? <span>Location captured successfully.</span> : <span>{locationError || 'Capturing location...'}</span>}
+            </div>
+
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Account
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+      <CardFooter className="text-center text-sm">
+        <p className="w-full">
+            Already have an account?{' '}
+            <Link href="/login" className="font-semibold text-primary hover:underline">
+                Sign In
+            </Link>
+        </p>
+      </CardFooter>
+    </Card>
+  );
+}
