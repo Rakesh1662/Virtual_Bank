@@ -28,7 +28,7 @@ const formSchema = z.object({
   panCardNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Please enter a valid PAN card number.' }),
   address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
   mpin: z.string().regex(/^\d{4}$/, { message: 'MPIN must be a 4-digit number.' }),
-  profilePicture: z.instanceof(FileList).refine((files) => files?.length === 1, 'Profile picture is required.'),
+  profilePicture: z.any().refine((files) => files?.length === 1, 'Profile picture is required.'),
 });
 
 export function RegisterForm() {
