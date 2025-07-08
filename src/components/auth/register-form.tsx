@@ -7,6 +7,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth, db, storage } from '@/lib/firebase';
 
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -18,11 +22,13 @@ import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
   mobileNumber: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit mobile number.' }),
   panCardNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Please enter a valid PAN card number.' }),
   address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
   mpin: z.string().regex(/^\d{4}$/, { message: 'MPIN must be a 4-digit number.' }),
-  profilePicture: z.any().refine((file) => file?.length == 1, 'Profile picture is required.'),
+  profilePicture: z.instanceof(FileList).refine((files) => files?.length === 1, 'Profile picture is required.'),
 });
 
 export function RegisterForm() {
@@ -56,12 +62,26 @@ export function RegisterForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       fullName: '',
+      email: '',
+      password: '',
       mobileNumber: '',
       panCardNumber: '',
       address: '',
       mpin: '',
     },
   });
+
+  if (!auth || !db || !storage) {
+    // This case should be handled by AuthProvider, but as a fallback:
+    return (
+      <Card className="w-full max-w-lg shadow-2xl my-8">
+        <CardHeader>
+          <CardTitle>Error</CardTitle>
+          <CardDescription>Firebase is not configured. Cannot register.</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -71,7 +91,7 @@ export function RegisterForm() {
     }
   };
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!location) {
         toast({
             variant: "destructive",
@@ -81,18 +101,50 @@ export function RegisterForm() {
         return;
     }
     setIsSubmitting(true);
-    // Mock registration logic
-    console.log('Registration values:', { ...values, location, timestamp: new Date() });
+    
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
 
-    // Simulate API call
-    setTimeout(() => {
+        const profilePicFile = values.profilePicture[0];
+        const storageRef = ref(storage, `profilePictures/${user.uid}/${profilePicFile.name}`);
+        const uploadResult = await uploadBytes(storageRef, profilePicFile);
+        const profilePictureUrl = await getDownloadURL(uploadResult.ref);
+
+        await updateProfile(user, {
+            displayName: values.fullName,
+            photoURL: profilePictureUrl,
+        });
+
+        await setDoc(doc(db, "users", user.uid), {
+            uid: user.uid,
+            fullName: values.fullName,
+            email: values.email,
+            mobileNumber: values.mobileNumber,
+            panCardNumber: values.panCardNumber,
+            address: values.address,
+            mpin: values.mpin,
+            profilePictureUrl,
+            registrationLocation: location,
+            createdAt: new Date(),
+        });
+
         toast({
             title: 'Registration Successful',
             description: 'Your account has been created. Please log in.',
         });
         router.push('/login');
+
+    } catch (error: any) {
+        console.error("Registration Error: ", error);
+        toast({
+            variant: "destructive",
+            title: "Registration Failed",
+            description: error.code === 'auth/email-already-in-use' ? 'This email is already registered.' : 'An unexpected error occurred.',
+        });
+    } finally {
         setIsSubmitting(false);
-    }, 2000);
+    }
   }
 
   return (
@@ -123,7 +175,7 @@ export function RegisterForm() {
                     </div>
                   </FormLabel>
                   <FormControl>
-                    <Input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                    <Input type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -131,20 +183,26 @@ export function RegisterForm() {
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="fullName" render={({ field }) => (
-                    <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="mobileNumber" render={({ field }) => (
-                    <FormItem><FormLabel>Mobile Number</FormLabel><FormControl><Input placeholder="9876543210" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Mobile Number</FormLabel><FormControl><Input placeholder="9876543210" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                 )} />
             </div>
+             <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="name@example.com" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="password" render={({ field }) => (
+                <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+            )} />
             <FormField control={form.control} name="panCardNumber" render={({ field }) => (
-                <FormItem><FormLabel>PAN Card Number</FormLabel><FormControl><Input placeholder="ABCDE1234F" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>PAN Card Number</FormLabel><FormControl><Input placeholder="ABCDE1234F" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="address" render={({ field }) => (
-                <FormItem><FormLabel>Address</FormLabel><FormControl><Textarea placeholder="123 Main St, Anytown..." {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Address</FormLabel><FormControl><Textarea placeholder="123 Main St, Anytown..." {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="mpin" render={({ field }) => (
-                <FormItem><FormLabel>4-Digit MPIN</FormLabel><FormControl><Input type="password" placeholder="••••" maxLength={4} {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>4-Digit MPIN</FormLabel><FormControl><Input type="password" placeholder="••••" maxLength={4} {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
             )} />
             
             <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md flex items-center gap-2">

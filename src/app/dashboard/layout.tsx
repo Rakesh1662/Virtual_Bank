@@ -1,15 +1,14 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { Banknote, Bell, Home, Menu, Search, User } from 'lucide-react';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarTrigger,
-  SidebarInset,
-} from '@/components/ui/sidebar';
+import { useRouter } from 'next/navigation';
+import { Banknote, Bell, LogOut, Menu, Search } from 'lucide-react';
+
+import { useAuth } from '@/context/auth-context';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+
 import NavLinks from '@/components/dashboard/nav-links';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,13 +21,54 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import Image from 'next/image';
+import { useToast } from '@/hooks/use-toast';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  const handleLogout = async () => {
+    if (!auth) {
+      toast({
+        variant: 'destructive',
+        title: 'Logout Failed',
+        description: 'Firebase is not configured correctly.',
+      });
+      return;
+    }
+    try {
+      await signOut(auth);
+      toast({
+        title: 'Logged Out',
+        description: 'You have been successfully logged out.',
+      });
+      router.push('/login');
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Logout Failed',
+        description: 'Something went wrong. Please try again.',
+      });
+    }
+  };
+
+  if (loading || !user) {
+    return null; 
+  }
+
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <div className="hidden border-r bg-card md:block">
@@ -47,7 +87,6 @@ export default function DashboardLayout({
             <NavLinks />
           </div>
           <div className="mt-auto p-4">
-            {/* Can add a card for support or other links here */}
           </div>
         </div>
       </div>
@@ -85,25 +124,22 @@ export default function DashboardLayout({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
-                <Image
-                    src="https://placehold.co/36x36.png"
-                    width={36}
-                    height={36}
-                    alt="User Avatar"
-                    className="rounded-full"
-                    data-ai-hint="user avatar"
-                />
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user.photoURL ?? undefined} alt={user.displayName ?? "User Avatar"} />
+                  <AvatarFallback>{user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email!.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
                 <span className="sr-only">Toggle user menu</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>{user.displayName || user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/login">Logout</Link>
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Logout</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
