@@ -52,7 +52,7 @@ export default function Home() {
                 width="600"
                 height="400"
                 alt="VeriBank App"
-                data-ai-hint="bank building"
+                data-ai-hint="modern bank"
                 className="mx-auto aspect-video overflow-hidden rounded-xl object-cover sm:w-full lg:order-last lg:aspect-square shadow-lg"
               />
             </div>
