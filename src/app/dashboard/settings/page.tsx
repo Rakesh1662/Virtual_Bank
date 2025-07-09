@@ -49,6 +49,8 @@ export default function SettingsPage() {
   const [isProfileSubmitting, setIsProfileSubmitting] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
   const [isMpinSubmitting, setIsMpinSubmitting] = useState(false);
+  
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
   // Initialize forms
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
@@ -306,6 +308,24 @@ export default function SettingsPage() {
             </form>
           </Form>
         </CardContent>
+      </Card>
+
+      <Card>
+          <CardHeader>
+              <CardTitle>Project Information</CardTitle>
+              <CardDescription>
+                  This is the Firebase project your application is currently connected to.
+              </CardDescription>
+          </CardHeader>
+          <CardContent>
+              <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Project ID:</span>
+                  <span className="font-mono text-sm bg-muted px-2 py-1 rounded-md">{projectId || 'Not available'}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-4">
+                  Please verify that this Project ID matches the one you see in the URL of your Firebase Console.
+              </p>
+          </CardContent>
       </Card>
 
     </div>
