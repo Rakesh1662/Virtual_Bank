@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -70,7 +70,6 @@ export default function DashboardPage() {
     const [isSending, setIsSending] = useState(false);
     const [isInitializing, setIsInitializing] = useState(false);
 
-    // State for separate sent/received queries
     const [recentSent, setRecentSent] = useState<Transaction[]>([]);
     const [recentReceived, setRecentReceived] = useState<Transaction[]>([]);
 
@@ -82,6 +81,17 @@ export default function DashboardPage() {
             mpin: '',
         },
     });
+    
+    const amountInput = form.watch('amount');
+    const { commission, totalDebit } = useMemo(() => {
+        const numericAmount = Number(amountInput) || 0;
+        if (numericAmount > 0) {
+            const commission = numericAmount * 0.01;
+            const totalDebit = numericAmount + commission;
+            return { commission, totalDebit };
+        }
+        return { commission: 0, totalDebit: 0 };
+    }, [amountInput]);
 
     useEffect(() => {
         if (!user) {
@@ -89,11 +99,9 @@ export default function DashboardPage() {
             return;
         }
         
-        // If userData is available from context, we can proceed.
         if (userData) {
             setIsLoading(true);
 
-            // Listener for user data
             const userDocRef = doc(db, 'users', user.uid);
             const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
                 if (doc.exists()) {
@@ -101,7 +109,6 @@ export default function DashboardPage() {
                 }
             });
 
-            // Listeners for transactions
             const transactionsRef = collection(db, 'transactions');
             const mapDocToTransaction = (doc: any): Transaction | null => {
                 const data = doc.data();
@@ -136,15 +143,12 @@ export default function DashboardPage() {
                 unsubscribeReceived();
             };
         } else {
-            // If user is authenticated but no userData, don't fetch transactions.
-            // The UI will show the initialization card.
             setIsLoading(false);
         }
     }, [user, userData]);
 
-    // Effect to combine transaction results
     useEffect(() => {
-        if (!userData) { // Don't process if no data
+        if (!userData) { 
             return;
         }
         const allTransactionsMap = new Map<string, Transaction>();
@@ -159,7 +163,7 @@ export default function DashboardPage() {
         if (isLoading) {
             setIsLoading(false);
         }
-    }, [recentSent, recentReceived, isLoading, userData]);
+    }, [recentSent, recentReceived, userData, isLoading]);
 
     async function handleInitializeAccount() {
         if (!user) {
@@ -180,7 +184,7 @@ export default function DashboardPage() {
                 mobileNumber: '',
                 panCardNumber: '',
                 address: '',
-                mpin: '0000', // Default MPIN, should be changed in settings.
+                mpin: '0000', 
                 profilePictureUrl: user.photoURL || '',
                 createdAt: serverTimestamp(),
                 accountBalance: 10000,
@@ -195,7 +199,6 @@ export default function DashboardPage() {
                 title: 'Account Initialized!',
                 description: `Your profile has been created with a default MPIN of '0000'. Please change it in Settings. ${isFirstUser ? 'You are now an administrator.' : ''}`
             });
-            // The onSnapshot listener in AuthContext will automatically update the UI and re-render.
 
         } catch (error: any) {
             console.error("Account initialization failed:", error);
@@ -263,7 +266,6 @@ export default function DashboardPage() {
             const receiverDocSnapshot = querySnapshot.docs[0];
             const receiverId = receiverDocSnapshot.id;
 
-            // Find an admin user to credit the commission to
             const adminQuery = query(usersRef, where('role', '==', 'admin'), limit(1));
             const adminSnapshot = await getDocs(adminQuery);
             const adminUserDoc = adminSnapshot.docs.length > 0 ? adminSnapshot.docs[0] : null;
@@ -274,11 +276,9 @@ export default function DashboardPage() {
                 const receiverDocRef = doc(db, 'users', receiverId);
                 const adminDocRef = adminUserDoc ? doc(db, 'users', adminUserDoc.id) : null;
                 
-                // Read all documents first
                 const senderDoc = await transaction.get(senderDocRef);
                 const receiverDoc = await transaction.get(receiverDocRef);
                 
-                // Validate documents
                 if (!senderDoc.exists()) {
                     throw new Error("Your user document does not exist.");
                 }
@@ -292,7 +292,6 @@ export default function DashboardPage() {
                 const senderData = senderDoc.data();
                 const receiverData = receiverDoc.data();
 
-                // 1. Update sender
                 const newSenderBalance = (senderData.accountBalance ?? 0) - totalDeduction;
                 const newCommissionPaid = (senderData.commissionPaid ?? 0) + commission;
                 transaction.update(senderDocRef, { 
@@ -300,13 +299,11 @@ export default function DashboardPage() {
                     commissionPaid: newCommissionPaid,
                 });
 
-                // 2. Update receiver
                 const newReceiverBalance = (receiverData.accountBalance ?? 0) + transferAmount;
                 transaction.update(receiverDocRef, { 
                     accountBalance: newReceiverBalance 
                 });
 
-                // 3. Update admin (if exists)
                 if (adminDocRef) {
                     const adminDoc = await transaction.get(adminDocRef);
                     if (adminDoc.exists()) {
@@ -316,7 +313,6 @@ export default function DashboardPage() {
                     }
                 }
 
-                // 4. Record transaction using transaction.set
                 const newTransactionRef = doc(collection(db, 'transactions'));
                 transaction.set(newTransactionRef, {
                     senderId: user.uid,
@@ -458,6 +454,18 @@ export default function DashboardPage() {
                                 <FormField control={form.control} name="amount" render={({ field }) => (
                                     <FormItem><Label>Amount (₹)</Label><FormControl><Input type="number" placeholder="0.00" {...field} disabled={isSending} /></FormControl><FormMessage /></FormItem>
                                 )} />
+                                
+                                <div className="text-sm rounded-md border bg-muted/50 p-3 space-y-1">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Commission (1%):</span>
+                                        <span>+ ₹{commission.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between font-semibold text-foreground">
+                                        <span>Total Debit:</span>
+                                        <span>₹{totalDebit.toFixed(2)}</span>
+                                    </div>
+                                </div>
+
                                 <FormField control={form.control} name="mpin" render={({ field }) => (
                                     <FormItem><Label>Your MPIN</Label><FormControl><Input type="password" placeholder="••••" {...field} maxLength={4} disabled={isSending} /></FormControl><FormMessage /></FormItem>
                                 )} />
