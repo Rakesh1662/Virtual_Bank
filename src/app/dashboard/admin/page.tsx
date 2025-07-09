@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -85,19 +86,19 @@ export default function AdminPage() {
                                         <TableCell>
                                             <div className="flex items-center gap-3">
                                                 <Avatar>
-                                                    <AvatarImage src={user.profilePictureUrl} alt={user.fullName} />
-                                                    <AvatarFallback>{user.fullName.charAt(0)}</AvatarFallback>
+                                                    <AvatarImage src={user.profilePictureUrl} alt={user.fullName || 'User Avatar'} />
+                                                    <AvatarFallback>{user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                                                 </Avatar>
-                                                <div className="font-medium">{user.fullName}</div>
+                                                <div className="font-medium">{user.fullName || 'N/A'}</div>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div>{user.email}</div>
-                                            <div className="text-sm text-muted-foreground">{user.mobileNumber}</div>
+                                            <div>{user.email || 'No email'}</div>
+                                            <div className="text-sm text-muted-foreground">{user.mobileNumber || 'No mobile'}</div>
                                         </TableCell>
-                                        <TableCell className="text-right font-mono">₹{user.accountBalance.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right font-mono">₹{user.accountBalance?.toFixed(2) ?? '0.00'}</TableCell>
                                         <TableCell className="text-center">
-                                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
+                                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">{user.role || 'user'}</Badge>
                                         </TableCell>
                                     </TableRow>
                                 ))
