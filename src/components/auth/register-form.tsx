@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs, query } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
 
@@ -118,14 +118,6 @@ export function RegisterForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
 
-        // Check if this is the first user (now that we are authenticated)
-        const usersCollectionRef = collection(db, 'users');
-        const usersQuery = query(usersCollectionRef);
-        const querySnapshot = await getDocs(usersQuery);
-        // The snapshot will not contain the document for the new user yet,
-        // as we haven't created it. So if it's empty, this is the first user.
-        const isFirstUser = querySnapshot.empty;
-
         const profilePicFile = values.profilePicture[0];
         const storageRef = ref(storage, `profilePictures/${user.uid}/${profilePicFile.name}`);
         const uploadResult = await uploadBytes(storageRef, profilePicFile);
@@ -135,6 +127,9 @@ export function RegisterForm() {
             displayName: values.fullName,
             photoURL: profilePictureUrl,
         });
+
+        const adminEmail = 'admin@veribank.com';
+        const isAdmin = values.email === adminEmail;
 
         await setDoc(doc(db, "users", user.uid), {
             uid: user.uid,
@@ -149,12 +144,12 @@ export function RegisterForm() {
             createdAt: new Date(),
             accountBalance: 10000,
             commissionPaid: 0,
-            role: isFirstUser ? 'admin' : 'user',
+            role: isAdmin ? 'admin' : 'user',
         });
 
         toast({
             title: 'Registration Successful',
-            description: `Your account has been created. ${isFirstUser ? 'You are now an administrator.' : 'Please log in.'}`,
+            description: `Your account has been created. ${isAdmin ? 'You are now an administrator.' : 'Please log in.'}`,
         });
         router.push('/login');
 
