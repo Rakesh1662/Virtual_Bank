@@ -93,6 +93,7 @@ If you don't know the answer to a question, politely say "I'm sorry, I can only 
     tools: [getTransactionHistory],
     input: { schema: SupportChatInputSchema },
     output: { format: 'text' },
+    prompt: `{{{query}}}`,
 });
 
 // Define the main flow that brings everything together
@@ -103,11 +104,7 @@ const supportChatFlow = ai.defineFlow(
     outputSchema: SupportChatOutputSchema,
   },
   async (input) => {
-    const response = await ai.generate({
-        prompt: input.query,
-        model: supportChatPrompt,
-        context: input, // Pass the entire flow input as context for the tool
-    });
+    const response = await supportChatPrompt(input);
     return response.text;
   }
 );
