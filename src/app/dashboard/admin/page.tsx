@@ -76,7 +76,7 @@ export default function AdminPage() {
                     const usersQuery = query(usersCollectionRef);
                     const querySnapshot = await getDocs(usersQuery);
                     const usersList = querySnapshot.docs
-                        .map(doc => doc.data() as UserData)
+                        .map(doc => ({ ...doc.data(), uid: doc.id }) as UserData)
                         .filter(user => user.uid !== userData.uid); // Filter out the current admin
                     setAllUsers(usersList);
                 } catch (error: any) {
