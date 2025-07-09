@@ -48,7 +48,7 @@ export default function Home() {
                 </div>
               </div>
               <Image
-                src="https://images.unsplash.com/photo-1501167786227-4cba60f6d58f?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                src="https://i.postimg.cc/L8q23sS5/Screenshot-2025-07-09-181116.png"
                 width="600"
                 height="400"
                 alt="VeriBank App"
