@@ -79,23 +79,6 @@ const getTransactionHistory = ai.defineTool(
   }
 );
 
-
-// Define the main prompt for the chatbot
-const supportChatPrompt = ai.definePrompt({
-    name: 'supportChatPrompt',
-    system: `You are a friendly and helpful customer support chatbot for VeriBank.
-Your goal is to assist users with their questions about their banking account.
-When a user asks about their transaction history, you MUST use the getTransactionHistory tool to get the data and then answer their question based on the tool's output.
-Do not make up transaction data. Be concise and clear in your responses.
-Summarize the transaction data in a human-readable way. Do not just list the raw data.
-For example, instead of a JSON list, say "You received 500 from John on May 15th and sent 200 to Jane on May 14th."
-If you don't know the answer to a question, politely say "I'm sorry, I can only help with questions about your VeriBank account and transaction history."`,
-    tools: [getTransactionHistory],
-    input: { schema: SupportChatInputSchema },
-    output: { format: 'text' },
-    prompt: `{{{query}}}`,
-});
-
 // Define the main flow that brings everything together
 const supportChatFlow = ai.defineFlow(
   {
@@ -104,7 +87,19 @@ const supportChatFlow = ai.defineFlow(
     outputSchema: SupportChatOutputSchema,
   },
   async (input) => {
-    const response = await supportChatPrompt(input);
+    const response = await ai.generate({
+      prompt: input.query,
+      model: 'googleai/gemini-2.0-flash',
+      system: `You are a friendly and helpful customer support chatbot for VeriBank.
+Your goal is to assist users with their questions about their banking account.
+When a user asks about their transaction history, you MUST use the getTransactionHistory tool to get the data and then answer their question based on the tool's output.
+Do not make up transaction data. Be concise and clear in your responses.
+Summarize the transaction data in a human-readable way. Do not just list the raw data.
+For example, instead of a JSON list, say "You received 500 from John on May 15th and sent 200 to Jane on May 14th."
+If you don't know the answer to a question, politely say "I'm sorry, I can only help with questions about your VeriBank account and transaction history."`,
+      tools: [getTransactionHistory],
+      context: input,
+    });
     return response.text;
   }
 );
