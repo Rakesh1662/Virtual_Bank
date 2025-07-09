@@ -67,13 +67,18 @@ export function LoginForm() {
       });
       router.push('/dashboard');
     } catch (error: any) {
-      console.error('Login error:', error);
       let description = 'An unexpected error occurred. Please try again.';
+
       if (error.code === 'auth/invalid-credential') {
-        description = 'Invalid email or password. Please double-check your credentials or register for a new account.';
-      } else if (error.code === 'auth/configuration-not-found') {
-        description = 'Firebase Authentication is not configured. Please enable Email/Password sign-in provider in your Firebase console.';
+        description = 'The email or password you entered is incorrect. Please double-check your credentials and try again.';
+      } else {
+        // Log other, unexpected errors
+        console.error('Login error:', error);
+        if (error.code === 'auth/configuration-not-found') {
+          description = 'Firebase Authentication is not configured. Please enable Email/Password sign-in provider in your Firebase console.';
+        }
       }
+      
       toast({
         variant: 'destructive',
         title: 'Login Failed',
