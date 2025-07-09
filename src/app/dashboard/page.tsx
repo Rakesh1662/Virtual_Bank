@@ -20,7 +20,7 @@ import {
   limit,
   setDoc,
 } from 'firebase/firestore';
-
+import { cn } from '@/lib/utils';
 import {
   Card,
   CardContent,
@@ -49,7 +49,7 @@ import { format } from 'date-fns';
 const sendMoneySchema = z.object({
   recipientMobile: z.string().regex(/^\d{10}$/, { message: "Must be a 10-digit mobile number." }),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }).min(1, { message: "Amount must be at least ₹1." }),
-  mpin: z.string().regex(/^\d{4}$/, { message: "MPIN must be a 4-digit number." }),
+  mpin: z.string().length(4, { message: "MPIN must be exactly 4 digits." }),
 });
 
 interface Transaction {
@@ -68,6 +68,8 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
     const [isInitializing, setIsInitializing] = useState(false);
+    const [recipientName, setRecipientName] = useState<string | null>(null);
+    const [isCheckingRecipient, setIsCheckingRecipient] = useState(false);
 
     const [recentSent, setRecentSent] = useState<Transaction[]>([]);
     const [recentReceived, setRecentReceived] = useState<Transaction[]>([]);
@@ -81,6 +83,7 @@ export default function DashboardPage() {
         },
     });
     
+    const recipientMobile = form.watch('recipientMobile');
     const amountInput = form.watch('amount');
     const { commission, totalDebit } = useMemo(() => {
         const numericAmount = Number(amountInput) || 0;
@@ -91,6 +94,46 @@ export default function DashboardPage() {
         }
         return { commission: 0, totalDebit: 0 };
     }, [amountInput]);
+
+    useEffect(() => {
+        if (!/^\d{10}$/.test(recipientMobile)) {
+            setRecipientName(null);
+            return;
+        }
+
+        setIsCheckingRecipient(true);
+        setRecipientName(null);
+
+        const handler = setTimeout(async () => {
+            if (recipientMobile === userData?.mobileNumber) {
+                setRecipientName("You cannot send money to yourself.");
+                setIsCheckingRecipient(false);
+                return;
+            }
+
+            try {
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where('mobileNumber', '==', recipientMobile), limit(1));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const receiverData = querySnapshot.docs[0].data();
+                    setRecipientName(receiverData.fullName);
+                } else {
+                    setRecipientName("Recipient not found.");
+                }
+            } catch (error) {
+                console.error("Error checking recipient:", error);
+                setRecipientName("Could not verify recipient.");
+            } finally {
+                setIsCheckingRecipient(false);
+            }
+        }, 500); // 500ms debounce
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [recipientMobile, userData?.mobileNumber]);
 
     useEffect(() => {
         if (!user) {
@@ -436,8 +479,25 @@ export default function DashboardPage() {
                         <form onSubmit={form.handleSubmit(handleSendMoney)}>
                             <CardContent className="space-y-4">
                                 <FormField control={form.control} name="recipientMobile" render={({ field }) => (
-                                    <FormItem><Label>Recipient's Mobile</Label><FormControl><Input placeholder="Enter 10-digit mobile no." {...field} disabled={isSending} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem>
+                                        <Label>Recipient's Mobile</Label>
+                                        <FormControl><Input placeholder="Enter 10-digit mobile no." {...field} disabled={isSending} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
                                 )} />
+
+                                <div className="h-4 text-sm mt-1">
+                                    {isCheckingRecipient && <span className="text-muted-foreground">Verifying recipient...</span>}
+                                    {recipientName && 
+                                        <span className={cn(
+                                            "font-medium",
+                                            (recipientName.includes("not found") || recipientName.includes("yourself")) && "text-destructive"
+                                        )}>
+                                            {recipientName.includes("not found") || recipientName.includes("yourself") ? recipientName : `Recipient: ${recipientName}`}
+                                        </span>
+                                    }
+                                </div>
+
                                 <FormField control={form.control} name="amount" render={({ field }) => (
                                     <FormItem><Label>Amount (₹)</Label><FormControl><Input type="number" placeholder="0.00" {...field} disabled={isSending} /></FormControl><FormMessage /></FormItem>
                                 )} />
@@ -458,7 +518,7 @@ export default function DashboardPage() {
                                 )} />
                             </CardContent>
                             <CardFooter>
-                                <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isSending}>
+                                <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isSending || !recipientName || recipientName.includes("not found") || recipientName.includes("yourself")}>
                                     {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Send Money
                                 </Button>
