@@ -1,14 +1,16 @@
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ArrowRightLeft, Settings, Shield } from 'lucide-react';
+import { Home, ArrowRightLeft, Settings, Shield, LifeBuoy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-context';
 
 const links = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/dashboard/transactions', label: 'Transactions', icon: ArrowRightLeft },
+  { href: '/dashboard/support', label: 'Support', icon: LifeBuoy },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

@@ -4,7 +4,7 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Banknote, Bell, LogOut, Menu, Search } from 'lucide-react';
+import { Banknote, Bell, LogOut, Menu, Search, Settings, LifeBuoy } from 'lucide-react';
 
 import { useAuth } from '@/context/auth-context';
 import { auth } from '@/lib/firebase';
@@ -135,8 +135,14 @@ export default function DashboardLayout({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{user.displayName || user.email || "User"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push('/dashboard/settings')} className="cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push('/dashboard/support')} className="cursor-pointer">
+                <LifeBuoy className="mr-2 h-4 w-4" />
+                <span>Support</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
