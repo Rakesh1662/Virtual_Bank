@@ -276,9 +276,12 @@ export default function DashboardPage() {
                 const receiverDocRef = doc(db, 'users', receiverId);
                 const adminDocRef = adminUserDoc ? doc(db, 'users', adminUserDoc.id) : null;
                 
+                // --- 1. ALL READS FIRST ---
                 const senderDoc = await transaction.get(senderDocRef);
                 const receiverDoc = await transaction.get(receiverDocRef);
-                
+                const adminDoc = adminDocRef ? await transaction.get(adminDocRef) : null;
+
+                // --- 2. VALIDATION ---
                 if (!senderDoc.exists()) {
                     throw new Error("Your user document does not exist.");
                 }
@@ -292,27 +295,29 @@ export default function DashboardPage() {
                 const senderData = senderDoc.data();
                 const receiverData = receiverDoc.data();
 
+                // --- 3. ALL WRITES LAST ---
+                // Update Sender
                 const newSenderBalance = (senderData.accountBalance ?? 0) - totalDeduction;
                 const newCommissionPaid = (senderData.commissionPaid ?? 0) + commission;
                 transaction.update(senderDocRef, { 
                     accountBalance: newSenderBalance,
                     commissionPaid: newCommissionPaid,
                 });
-
+                
+                // Update Receiver
                 const newReceiverBalance = (receiverData.accountBalance ?? 0) + transferAmount;
                 transaction.update(receiverDocRef, { 
                     accountBalance: newReceiverBalance 
                 });
 
-                if (adminDocRef) {
-                    const adminDoc = await transaction.get(adminDocRef);
-                    if (adminDoc.exists()) {
-                        const adminData = adminDoc.data();
-                        const newAdminBalance = (adminData.accountBalance ?? 0) + commission;
-                        transaction.update(adminDocRef, { accountBalance: newAdminBalance });
-                    }
+                // Update Admin
+                if (adminDoc && adminDoc.exists()) {
+                    const adminData = adminDoc.data();
+                    const newAdminBalance = (adminData.accountBalance ?? 0) + commission;
+                    transaction.update(adminDoc.ref, { accountBalance: newAdminBalance });
                 }
 
+                // Create new transaction document
                 const newTransactionRef = doc(collection(db, 'transactions'));
                 transaction.set(newTransactionRef, {
                     senderId: user.uid,
@@ -467,7 +472,7 @@ export default function DashboardPage() {
                                 </div>
 
                                 <FormField control={form.control} name="mpin" render={({ field }) => (
-                                    <FormItem><Label>Your MPIN</Label><FormControl><Input type="password" placeholder="••••" {...field} maxLength={4} disabled={isSending} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><Label>Your MPIN</Label><FormControl><Input type="password" placeholder="••••" maxLength={4} disabled={isSending} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             </CardContent>
                             <CardFooter>
