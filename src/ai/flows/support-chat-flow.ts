@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A support chatbot flow for VeriBank.
@@ -14,13 +13,13 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 
 // Define schemas for the flow
-export const SupportChatInputSchema = z.object({
+const SupportChatInputSchema = z.object({
   userId: z.string().describe('The UID of the user asking the question.'),
   query: z.string().describe("The user's question."),
 });
 export type SupportChatInput = z.infer<typeof SupportChatInputSchema>;
 
-export const SupportChatOutputSchema = z.string().describe("The chatbot's response.");
+const SupportChatOutputSchema = z.string().describe("The chatbot's response.");
 export type SupportChatOutput = z.infer<typeof SupportChatOutputSchema>;
 
 
