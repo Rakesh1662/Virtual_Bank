@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,7 +30,7 @@ const formSchema = z.object({
   address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
   mpin: z.string().regex(/^\d{4}$/, { message: 'MPIN must be a 4-digit number.' }),
   profilePicture: z.any()
-    .refine((files) => files?.length === 1, 'Profile picture is required.')
+    .refine((files) => files?.[0], 'Profile picture is required.')
     .refine((files) => files?.[0]?.size <= 5000000, `Max file size is 5MB.`)
     .refine(
       (files) => ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(files?.[0]?.type),
@@ -133,6 +134,8 @@ export function RegisterForm() {
             profilePictureUrl,
             registrationLocation: location,
             createdAt: new Date(),
+            accountBalance: 10000,
+            commissionPaid: 0,
         });
 
         toast({
