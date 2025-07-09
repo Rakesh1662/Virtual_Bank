@@ -162,7 +162,7 @@ export function RegisterForm() {
                 description = 'This email is already registered. Please log in instead.';
                 break;
             case 'permission-denied':
-                description = 'Database permission denied. Please check your Firestore security rules to allow new user documents to be created.';
+                description = 'Database write failed. This is likely due to your Firestore Security Rules. Please go to the Firebase Console -> Firestore -> Rules and ensure that authenticated users can create their own documents. A common rule for this is: "allow create: if request.auth.uid == request.resource.data.uid;" under the path "match /users/{userId}".';
                 break;
             case 'failed-precondition':
                 description = 'Firestore database has not been created. Please go to the Firebase console to create a Firestore database.';
