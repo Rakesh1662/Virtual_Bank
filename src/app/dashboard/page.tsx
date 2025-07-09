@@ -194,7 +194,7 @@ export default function DashboardPage() {
 
             toast({
                 title: 'Account Initialized!',
-                description: `Your profile has been created. ${isFirstUser ? 'You are now an administrator.' : ''}`
+                description: `Your profile has been created with a default MPIN of '0000'. Please change it in Settings. ${isFirstUser ? 'You are now an administrator.' : ''}`
             });
             // The onSnapshot listener in AuthContext will automatically update the UI and re-render.
 
@@ -220,7 +220,15 @@ export default function DashboardPage() {
         setIsSending(true);
 
         if (values.mpin !== userData.mpin) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Incorrect MPIN.' });
+            let description = 'Incorrect MPIN.';
+            if (userData.mpin === '0000') {
+                description = "Incorrect MPIN. If you recently initialized your account, your default MPIN is '0000'. We strongly recommend changing it in the Settings page."
+            }
+            toast({ 
+                variant: 'destructive', 
+                title: 'Error', 
+                description: description 
+            });
             setIsSending(false);
             return;
         }
