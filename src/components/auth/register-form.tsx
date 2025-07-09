@@ -1,4 +1,3 @@
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
 
@@ -141,7 +140,7 @@ export function RegisterForm() {
             mpin: values.mpin,
             profilePictureUrl,
             registrationLocation: location,
-            createdAt: new Date(),
+            createdAt: serverTimestamp(),
             accountBalance: 10000,
             commissionPaid: 0,
             role: isAdmin ? 'admin' : 'user',
@@ -156,11 +155,21 @@ export function RegisterForm() {
 
     } catch (error: any) {
         console.error("Registration Error: ", error);
-        let description = 'An unexpected error occurred.';
-        if (error.code === 'auth/email-already-in-use') {
-            description = 'This email is already registered.';
-        } else if (error.code === 'auth/configuration-not-found') {
-            description = 'Firebase Authentication is not configured. Please enable Email/Password sign-in provider in your Firebase console.';
+        let description = 'An unexpected error occurred. Please try again.';
+        
+        switch (error.code) {
+            case 'auth/email-already-in-use':
+                description = 'This email is already registered. Please log in instead.';
+                break;
+            case 'permission-denied':
+                description = 'Database permission denied. Please check your Firestore security rules to allow new user documents to be created.';
+                break;
+            case 'failed-precondition':
+                description = 'Firestore database has not been created. Please go to the Firebase console to create a Firestore database.';
+                break;
+            case 'auth/configuration-not-found':
+                description = 'Firebase Authentication is not configured. Please enable Email/Password sign-in provider in your Firebase console.';
+                break;
         }
         
         toast({
