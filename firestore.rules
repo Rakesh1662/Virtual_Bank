@@ -1,0 +1,24 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId || isAdmin();
+      allow update: if request.auth.uid == userId;
+      // Allow user to create their own document during registration
+      allow create: if request.auth.uid == userId;
+    }
+
+    match /transactions/{transactionId} {
+      // Allow user to create a transaction only if they are the sender
+      allow create: if request.auth.uid == request.resource.data.senderId;
+      // Allow sender, receiver, or an admin to read transactions
+      allow read: if request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId || isAdmin();
+    }
+  }
+}
