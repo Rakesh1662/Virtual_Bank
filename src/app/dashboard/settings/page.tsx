@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/context/auth-context';
 import { auth, db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { updateProfile, reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth';
 
 import { Button } from '@/components/ui/button';
@@ -90,10 +90,10 @@ export default function SettingsPage() {
     setIsProfileSubmitting(true);
     try {
         const userDocRef = doc(db, 'users', user.uid);
-        await updateDoc(userDocRef, {
+        await setDoc(userDocRef, {
             fullName: values.fullName,
             address: values.address,
-        });
+        }, { merge: true });
         if (user.displayName !== values.fullName) {
             await updateProfile(user, { displayName: values.fullName });
         }
@@ -139,7 +139,7 @@ export default function SettingsPage() {
         }
 
         const userDocRef = doc(db, "users", user.uid);
-        await updateDoc(userDocRef, { mpin: values.newMpin });
+        await setDoc(userDocRef, { mpin: values.newMpin }, { merge: true });
         toast({ title: "Success", description: "Your MPIN has been updated." });
         mpinForm.reset();
     } catch (error) {
@@ -155,7 +155,7 @@ export default function SettingsPage() {
     setIsBecomingAdmin(true);
     try {
       const userDocRef = doc(db, 'users', user.uid);
-      await updateDoc(userDocRef, { role: 'admin' });
+      await setDoc(userDocRef, { role: 'admin' }, { merge: true });
       toast({ title: 'Success!', description: 'You are now an administrator. The admin panel is now available.' });
       // The onSnapshot listener in AuthContext will handle the state update automatically.
     } catch (error) {
