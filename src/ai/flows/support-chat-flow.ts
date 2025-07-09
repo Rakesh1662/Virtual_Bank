@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, Timestamp, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 
 // Define schemas for the flow
 export const SupportChatInputSchema = z.object({
@@ -46,8 +46,8 @@ const getTransactionHistory = ai.defineTool(
     const transactionsRef = collection(db, 'transactions');
     
     // Create queries for both sent and received transactions
-    const sentQuery = query(transactionsRef, where('senderId', '==', userId), orderBy('timestamp', 'desc'), limit(10));
-    const receivedQuery = query(transactionsRef, where('receiverId', '==', userId), orderBy('timestamp', 'desc'), limit(10));
+    const sentQuery = query(transactionsRef, where('senderId', '==', userId));
+    const receivedQuery = query(transactionsRef, where('receiverId', '==', userId));
 
     const [sentSnapshot, receivedSnapshot] = await Promise.all([
         getDocs(sentQuery),

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 import {
@@ -87,13 +87,13 @@ export default function TransactionsPage() {
         };
 
         // Query for sent transactions
-        const sentQuery = query(transactionsRef, where('senderId', '==', user.uid), orderBy('timestamp', 'desc'));
+        const sentQuery = query(transactionsRef, where('senderId', '==', user.uid));
         const unsubscribeSent = onSnapshot(sentQuery, (snapshot) => {
             setSentTransactions(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
         }, (error) => console.error("Error fetching sent transactions:", error));
 
         // Query for received transactions
-        const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid), orderBy('timestamp', 'desc'));
+        const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid));
         const unsubscribeReceived = onSnapshot(receivedQuery, (snapshot) => {
             setReceivedTransactions(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
         }, (error) => console.error("Error fetching received transactions:", error));

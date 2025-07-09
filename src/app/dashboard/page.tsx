@@ -17,8 +17,6 @@ import {
   addDoc,
   serverTimestamp,
   onSnapshot,
-  limit,
-  orderBy,
   Timestamp,
 } from 'firebase/firestore';
 
@@ -118,12 +116,12 @@ export default function DashboardPage() {
             };
         };
         
-        const sentQuery = query(transactionsRef, where('senderId', '==', user.uid), orderBy('timestamp', 'desc'), limit(5));
+        const sentQuery = query(transactionsRef, where('senderId', '==', user.uid));
         const unsubscribeSent = onSnapshot(sentQuery, (snapshot) => {
             setRecentSent(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
         }, (error) => console.error("Error fetching recent sent transactions:", error));
 
-        const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid), orderBy('timestamp', 'desc'), limit(5));
+        const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid));
         const unsubscribeReceived = onSnapshot(receivedQuery, (snapshot) => {
             setRecentReceived(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
         }, (error) => console.error("Error fetching recent received transactions:", error));
