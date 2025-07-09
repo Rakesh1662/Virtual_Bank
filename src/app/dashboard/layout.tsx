@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -126,13 +127,13 @@ export default function DashboardLayout({
               <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar className="h-9 w-9">
                   <AvatarImage src={user.photoURL ?? undefined} alt={user.displayName ?? "User Avatar"} />
-                  <AvatarFallback>{user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email!.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{user.displayName?.charAt(0).toUpperCase() ?? user.email?.charAt(0).toUpperCase() ?? 'U'}</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Toggle user menu</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user.displayName || user.email}</DropdownMenuLabel>
+              <DropdownMenuLabel>{user.displayName || user.email || "User"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
