@@ -28,7 +28,13 @@ const formSchema = z.object({
   panCardNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Please enter a valid PAN card number.' }),
   address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
   mpin: z.string().regex(/^\d{4}$/, { message: 'MPIN must be a 4-digit number.' }),
-  profilePicture: z.any().refine((files) => files?.length === 1, 'Profile picture is required.'),
+  profilePicture: z.any()
+    .refine((files) => files?.length === 1, 'Profile picture is required.')
+    .refine((files) => files?.[0]?.size <= 5000000, `Max file size is 5MB.`)
+    .refine(
+      (files) => ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(files?.[0]?.type),
+      ".jpg, .jpeg, .png and .webp files are accepted."
+    ),
 });
 
 export function RegisterForm() {
@@ -137,10 +143,17 @@ export function RegisterForm() {
 
     } catch (error: any) {
         console.error("Registration Error: ", error);
+        let description = 'An unexpected error occurred.';
+        if (error.code === 'auth/email-already-in-use') {
+            description = 'This email is already registered.';
+        } else if (error.code === 'auth/configuration-not-found') {
+            description = 'Firebase Authentication is not configured. Please enable Email/Password sign-in provider in your Firebase console.';
+        }
+        
         toast({
             variant: "destructive",
             title: "Registration Failed",
-            description: error.code === 'auth/email-already-in-use' ? 'This email is already registered.' : 'An unexpected error occurred.',
+            description: description,
         });
     } finally {
         setIsSubmitting(false);

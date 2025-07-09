@@ -68,10 +68,16 @@ export function LoginForm() {
       router.push('/dashboard');
     } catch (error: any) {
       console.error('Login error:', error);
+      let description = 'An unexpected error occurred. Please try again.';
+      if (error.code === 'auth/invalid-credential') {
+        description = 'Invalid email or password.';
+      } else if (error.code === 'auth/configuration-not-found') {
+        description = 'Firebase Authentication is not configured. Please enable Email/Password sign-in provider in your Firebase console.';
+      }
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error.code === 'auth/invalid-credential' ? 'Invalid email or password.' : 'An unexpected error occurred. Please try again.',
+        description: description,
       });
     } finally {
       setIsLoading(false);
