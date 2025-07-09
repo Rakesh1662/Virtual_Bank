@@ -115,14 +115,16 @@ export function RegisterForm() {
     setIsSubmitting(true);
     
     try {
-        // Check if this is the first user
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
+
+        // Check if this is the first user (now that we are authenticated)
         const usersCollectionRef = collection(db, 'users');
         const usersQuery = query(usersCollectionRef);
         const querySnapshot = await getDocs(usersQuery);
+        // The snapshot will not contain the document for the new user yet,
+        // as we haven't created it. So if it's empty, this is the first user.
         const isFirstUser = querySnapshot.empty;
-
-        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-        const user = userCredential.user;
 
         const profilePicFile = values.profilePicture[0];
         const storageRef = ref(storage, `profilePictures/${user.uid}/${profilePicFile.name}`);
