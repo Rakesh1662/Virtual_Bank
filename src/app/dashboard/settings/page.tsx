@@ -22,6 +22,8 @@ import { Loader2 } from 'lucide-react';
 const profileFormSchema = z.object({
   fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
   email: z.string().email(),
+  mobileNumber: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit mobile number.' }),
+  panCardNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Please enter a valid PAN card number.' }),
   address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
 });
 
@@ -59,6 +61,8 @@ export default function SettingsPage() {
     defaultValues: {
       fullName: '',
       email: '',
+      mobileNumber: '',
+      panCardNumber: '',
       address: '',
     },
   });
@@ -79,6 +83,8 @@ export default function SettingsPage() {
       profileForm.reset({
         fullName: userData.fullName || '',
         email: userData.email || '',
+        mobileNumber: userData.mobileNumber || '',
+        panCardNumber: userData.panCardNumber || '',
         address: userData.address || '',
       });
     }
@@ -93,6 +99,8 @@ export default function SettingsPage() {
         await setDoc(userDocRef, {
             fullName: values.fullName,
             address: values.address,
+            mobileNumber: values.mobileNumber,
+            panCardNumber: values.panCardNumber,
         }, { merge: true });
         if (user.displayName !== values.fullName) {
             await updateProfile(user, { displayName: values.fullName });
@@ -185,6 +193,28 @@ export default function SettingsPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl><Input {...field} disabled /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={profileForm.control}
+                name="mobileNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number</FormLabel>
+                    <FormControl><Input {...field} disabled={isProfileSubmitting} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={profileForm.control}
+                name="panCardNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>PAN Card Number</FormLabel>
+                    <FormControl><Input {...field} disabled={isProfileSubmitting} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

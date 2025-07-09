@@ -244,7 +244,7 @@ export default function DashboardPage() {
             return;
         }
         
-        if (userData.mobileNumber === values.recipientMobile) {
+        if (userData.mobileNumber && userData.mobileNumber === values.recipientMobile) {
             toast({ variant: 'destructive', title: 'Error', description: "You cannot send money to yourself." });
             setIsSending(false);
             return;
