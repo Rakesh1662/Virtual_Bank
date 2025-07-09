@@ -147,21 +147,6 @@ export default function SettingsPage() {
     }
   }
   
-  async function handleBecomeAdmin() {
-    if (!user || !db) return;
-    try {
-        const userDocRef = doc(db, 'users', user.uid);
-        await updateDoc(userDocRef, { role: 'admin' });
-        toast({ title: 'Success', description: 'You have been promoted to an administrator. The page will now refresh.' });
-        // A reload ensures everything re-renders correctly with new admin privileges.
-        window.location.reload();
-    } catch (error) {
-        console.error("Admin promotion error:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to become admin. Check Firestore security rules.' });
-    }
-  }
-
-
   if (authLoading) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
@@ -322,19 +307,6 @@ export default function SettingsPage() {
           </Form>
         </CardContent>
       </Card>
-      
-      {/* Developer Tools Card */}
-      {userData?.role !== 'admin' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Developer Tools</CardTitle>
-            <CardDescription>Grant yourself admin privileges.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleBecomeAdmin}>Become Admin</Button>
-          </CardContent>
-        </Card>
-      )}
 
     </div>
   );
