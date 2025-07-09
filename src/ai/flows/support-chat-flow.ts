@@ -36,8 +36,8 @@ const getTransactionHistory = ai.defineTool(
         date: z.string(),
     })),
   },
-  async (_, context) => { // The `context` object contains flow-level parameters.
-    const { userId } = context.params;
+  async (_, context) => { // The `context` object is the flow's input.
+    const { userId } = context as SupportChatInput;
     if (!userId) {
         throw new Error('User ID is required to fetch transaction history.');
     }
