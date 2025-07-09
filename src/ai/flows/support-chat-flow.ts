@@ -56,29 +56,23 @@ const getTransactionHistory = ai.defineTool(
     
     const transactions: { type: 'sent' | 'received'; counterparty: string; amount: number; date: string; rawDate: Date }[] = [];
     
-    sentSnapshot.forEach(doc => {
+    const processDoc = (doc: any, type: 'sent' | 'received') => {
         const data = doc.data();
-        const transactionDate = (data.timestamp as Timestamp).toDate();
-        transactions.push({
-            type: 'sent',
-            counterparty: data.receiverName,
-            amount: data.amount,
-            date: transactionDate.toLocaleDateString(),
-            rawDate: transactionDate
-        });
-    });
+        // Ensure timestamp is valid before processing
+        if (data.timestamp && typeof data.timestamp.toDate === 'function') {
+            const transactionDate = (data.timestamp as Timestamp).toDate();
+            transactions.push({
+                type: type,
+                counterparty: type === 'sent' ? data.receiverName : data.senderName,
+                amount: data.amount,
+                date: transactionDate.toLocaleDateString(),
+                rawDate: transactionDate
+            });
+        }
+    };
 
-    receivedSnapshot.forEach(doc => {
-        const data = doc.data();
-        const transactionDate = (data.timestamp as Timestamp).toDate();
-        transactions.push({
-            type: 'received',
-            counterparty: data.senderName,
-            amount: data.amount,
-            date: transactionDate.toLocaleDateString(),
-            rawDate: transactionDate,
-        });
-    });
+    sentSnapshot.forEach(doc => processDoc(doc, 'sent'));
+    receivedSnapshot.forEach(doc => processDoc(doc, 'received'));
 
     // Sort all transactions by date and take the most recent 10
     transactions.sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime());

@@ -66,10 +66,14 @@ export default function TransactionsPage() {
         setIsLoading(true);
         const transactionsRef = collection(db, 'transactions');
         
-        const mapDocToTransaction = (doc: any): Transaction => {
+        const mapDocToTransaction = (doc: any): Transaction | null => {
             const data = doc.data();
+            if (!data.timestamp || typeof data.timestamp.toDate !== 'function') {
+                console.warn(`Skipping transaction with invalid timestamp: ${doc.id}`);
+                return null;
+            }
             const isSent = data.senderId === user.uid;
-            const transactionTimestamp = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date();
+            const transactionTimestamp = (data.timestamp as Timestamp).toDate();
 
             return {
                 id: doc.id,
@@ -85,13 +89,13 @@ export default function TransactionsPage() {
         // Query for sent transactions
         const sentQuery = query(transactionsRef, where('senderId', '==', user.uid), orderBy('timestamp', 'desc'));
         const unsubscribeSent = onSnapshot(sentQuery, (snapshot) => {
-            setSentTransactions(snapshot.docs.map(mapDocToTransaction));
+            setSentTransactions(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
         }, (error) => console.error("Error fetching sent transactions:", error));
 
         // Query for received transactions
         const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid), orderBy('timestamp', 'desc'));
         const unsubscribeReceived = onSnapshot(receivedQuery, (snapshot) => {
-            setReceivedTransactions(snapshot.docs.map(mapDocToTransaction));
+            setReceivedTransactions(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
         }, (error) => console.error("Error fetching received transactions:", error));
 
         return () => {

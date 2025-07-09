@@ -101,10 +101,14 @@ export default function DashboardPage() {
 
         // Listeners for transactions
         const transactionsRef = collection(db, 'transactions');
-        const mapDocToTransaction = (doc: any): Transaction => {
+        const mapDocToTransaction = (doc: any): Transaction | null => {
             const data = doc.data();
+            if (!data.timestamp || typeof data.timestamp.toDate !== 'function') {
+                console.warn(`Skipping transaction with invalid timestamp: ${doc.id}`);
+                return null;
+            }
             const isSent = data.senderId === user.uid;
-            const transactionDate = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date();
+            const transactionDate = (data.timestamp as Timestamp).toDate();
             return {
                 id: doc.id,
                 type: isSent ? 'sent' : 'received',
@@ -116,12 +120,12 @@ export default function DashboardPage() {
         
         const sentQuery = query(transactionsRef, where('senderId', '==', user.uid), orderBy('timestamp', 'desc'), limit(5));
         const unsubscribeSent = onSnapshot(sentQuery, (snapshot) => {
-            setRecentSent(snapshot.docs.map(mapDocToTransaction));
+            setRecentSent(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
         }, (error) => console.error("Error fetching recent sent transactions:", error));
 
         const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid), orderBy('timestamp', 'desc'), limit(5));
         const unsubscribeReceived = onSnapshot(receivedQuery, (snapshot) => {
-            setRecentReceived(snapshot.docs.map(mapDocToTransaction));
+            setRecentReceived(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
         }, (error) => console.error("Error fetching recent received transactions:", error));
 
         return () => {
@@ -161,8 +165,9 @@ export default function DashboardPage() {
         const transferAmount = values.amount;
         const commission = transferAmount * 0.01;
         const totalDeduction = transferAmount + commission;
+        const currentBalance = userData.accountBalance ?? 0;
 
-        if (userData.accountBalance < totalDeduction) {
+        if (currentBalance < totalDeduction) {
             toast({ variant: 'destructive', title: 'Error', description: 'Insufficient balance.' });
             setIsSending(false);
             return;
@@ -194,17 +199,24 @@ export default function DashboardPage() {
                 const receiverDocRef = doc(db, 'users', receiverId);
 
                 const senderDoc = await transaction.get(senderDocRef);
-                if (!senderDoc.exists() || senderDoc.data().accountBalance < totalDeduction) {
+                const senderData = senderDoc.data();
+                
+                if (!senderDoc.exists() || (senderData?.accountBalance ?? 0) < totalDeduction) {
                     throw new Error("Insufficient balance.");
                 }
 
                 // Update balances
+                const newSenderBalance = (senderData?.accountBalance ?? 0) - totalDeduction;
+                const newCommissionPaid = (senderData?.commissionPaid ?? 0) + commission;
+                
                 transaction.update(senderDocRef, { 
-                    accountBalance: senderDoc.data().accountBalance - totalDeduction,
-                    commissionPaid: (senderDoc.data().commissionPaid || 0) + commission,
+                    accountBalance: newSenderBalance,
+                    commissionPaid: newCommissionPaid,
                 });
+
+                const newReceiverBalance = (receiverData.accountBalance ?? 0) + transferAmount;
                 transaction.update(receiverDocRef, { 
-                    accountBalance: receiverData.accountBalance + transferAmount 
+                    accountBalance: newReceiverBalance 
                 });
 
                 // Record transaction
