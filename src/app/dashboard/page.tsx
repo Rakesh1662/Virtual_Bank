@@ -1,11 +1,11 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAuth } from '@/context/auth-context';
+import { useAuth, UserData } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -54,13 +54,6 @@ const sendMoneySchema = z.object({
   mpin: z.string().regex(/^\d{4}$/, { message: "MPIN must be a 4-digit number." }),
 });
 
-interface UserData {
-    fullName: string;
-    accountBalance: number;
-    commissionPaid: number;
-    mpin: string;
-}
-
 interface Transaction {
     id: string;
     type: 'sent' | 'received';
@@ -70,10 +63,10 @@ interface Transaction {
 }
 
 export default function DashboardPage() {
-    const { user } = useAuth();
+    const { user, userData } = useAuth();
     const { toast } = useToast();
     
-    const [userData, setUserData] = useState<UserData | null>(null);
+    const [displayData, setDisplayData] = useState<UserData | null>(null);
     const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
@@ -87,19 +80,21 @@ export default function DashboardPage() {
         },
     });
 
-    const fetchDashboardData = useCallback(async () => {
-        if (!user) return;
+    useEffect(() => {
+        if (!user) {
+            setIsLoading(false);
+            return;
+        }
+        
         setIsLoading(true);
 
-        // User data listener
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
             if (doc.exists()) {
-                setUserData(doc.data() as UserData);
+                setDisplayData(doc.data() as UserData);
             }
         });
 
-        // Transactions listener
         const transactionsRef = collection(db, 'transactions');
         const q = query(
             transactionsRef,
@@ -108,8 +103,8 @@ export default function DashboardPage() {
             limit(5)
         );
         
-        const unsubscribeTransactions = onSnapshot(q, async (querySnapshot) => {
-            const transactionsData = querySnapshot.docs.map(doc => {
+        const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
+            const transactionsData = snapshot.docs.map(doc => {
                 const data = doc.data();
                 const isSent = data.senderId === user.uid;
                 const transactionDate = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date();
@@ -123,22 +118,17 @@ export default function DashboardPage() {
                 };
             });
             setRecentTransactions(transactionsData);
+            setIsLoading(false); // Data loaded
+        }, (error) => {
+            console.error("Transaction listener error:", error);
+            setIsLoading(false);
         });
-
-        setIsLoading(false);
 
         return () => {
             unsubscribeUser();
             unsubscribeTransactions();
         };
     }, [user]);
-
-    useEffect(() => {
-        const unsubscribe = fetchDashboardData();
-        return () => {
-            unsubscribe.then(unsub => unsub && unsub());
-        };
-    }, [fetchDashboardData]);
 
     async function handleSendMoney(values: z.infer<typeof sendMoneySchema>) {
         if (!user || !userData) return;
@@ -160,7 +150,7 @@ export default function DashboardPage() {
             return;
         }
         
-        if (user.mobileNumber === values.recipientMobile) {
+        if (userData.mobileNumber === values.recipientMobile) {
             toast({ variant: 'destructive', title: 'Error', description: "You cannot send money to yourself." });
             setIsSending(false);
             return;
@@ -238,7 +228,7 @@ export default function DashboardPage() {
                         <Wallet className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">₹{userData?.accountBalance?.toFixed(2) ?? '0.00'}</div>
+                        <div className="text-2xl font-bold">₹{displayData?.accountBalance?.toFixed(2) ?? '0.00'}</div>
                         <p className="text-xs text-muted-foreground">
                             Available to spend
                         </p>
@@ -252,7 +242,7 @@ export default function DashboardPage() {
                         <Landmark className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">₹{userData?.commissionPaid?.toFixed(2) ?? '0.00'}</div>
+                        <div className="text-2xl font-bold">₹{displayData?.commissionPaid?.toFixed(2) ?? '0.00'}</div>
                         <p className="text-xs text-muted-foreground">
                             Total commission on transfers
                         </p>

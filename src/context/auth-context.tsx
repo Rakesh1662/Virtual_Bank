@@ -2,11 +2,27 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, isFirebaseConfigured } from '@/lib/firebase';
+import { auth, db, isFirebaseConfigured } from '@/lib/firebase';
+import { doc, onSnapshot, DocumentData } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+
+export interface UserData extends DocumentData {
+  uid: string;
+  fullName: string;
+  email: string;
+  mobileNumber: string;
+  panCardNumber: string;
+  address: string;
+  mpin: string;
+  profilePictureUrl: string;
+  accountBalance: number;
+  commissionPaid: number;
+  role: 'user' | 'admin';
+}
 
 interface AuthContextType {
   user: User | null;
+  userData: UserData | null;
   loading: boolean;
 }
 
@@ -14,18 +30,43 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setUser(user);
-        setLoading(false);
-      });
-      return unsubscribe;
-    } else {
+    if (!auth || !db) {
       setLoading(false);
+      return;
     }
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      if (user) {
+        // User is signed in, listen for their data
+        const userDocRef = doc(db, 'users', user.uid);
+        const unsubscribeSnapshot = onSnapshot(userDocRef, (doc) => {
+          if (doc.exists()) {
+            setUserData(doc.data() as UserData);
+          } else {
+            setUserData(null);
+          }
+          setLoading(false);
+        }, (error) => {
+            console.error("Error fetching user data:", error);
+            setUserData(null);
+            setLoading(false);
+        });
+        
+        // Return the snapshot listener's unsubscribe function
+        return () => unsubscribeSnapshot();
+      } else {
+        // User is signed out
+        setUserData(null);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
   }, []);
 
   if (!isFirebaseConfigured) {
@@ -44,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
   }
 
-  const value = { user, loading };
+  const value = { user, userData, loading };
 
   return (
     <AuthContext.Provider value={value}>

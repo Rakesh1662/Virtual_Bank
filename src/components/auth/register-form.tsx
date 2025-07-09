@@ -35,7 +35,7 @@ const formSchema = z.object({
     .refine(
       (files) => ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(files?.[0]?.type),
       ".jpg, .jpeg, .png and .webp files are accepted."
-    ),
+    ).nullable(),
 });
 
 export function RegisterForm() {
@@ -75,6 +75,7 @@ export function RegisterForm() {
       panCardNumber: '',
       address: '',
       mpin: '',
+      profilePicture: null,
     },
   });
 
@@ -99,6 +100,10 @@ export function RegisterForm() {
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!values.profilePicture || values.profilePicture.length === 0) {
+        form.setError('profilePicture', { type: 'manual', message: 'Profile picture is required.' });
+        return;
+    }
     if (!location) {
         toast({
             variant: "destructive",
@@ -136,6 +141,7 @@ export function RegisterForm() {
             createdAt: new Date(),
             accountBalance: 10000,
             commissionPaid: 0,
+            role: 'user', // Default role
         });
 
         toast({
