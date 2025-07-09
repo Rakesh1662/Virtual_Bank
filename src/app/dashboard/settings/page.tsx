@@ -125,12 +125,20 @@ export default function SettingsPage() {
         toast({ title: 'Success', description: 'Your password has been changed.' });
         passwordForm.reset();
     } catch (error: any) {
-        console.error("Password change error:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Password Change Failed',
-            description: error.code === 'auth/wrong-password' ? 'Incorrect current password.' : 'An error occurred. Please try again.',
-        });
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            toast({
+                variant: 'destructive',
+                title: 'Password Change Failed',
+                description: 'The current password you entered is incorrect.',
+            });
+        } else {
+            console.error("Password change error:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Password Change Failed',
+                description: 'An unexpected error occurred. Please try again.',
+            });
+        }
     } finally {
         setIsPasswordSubmitting(false);
     }
