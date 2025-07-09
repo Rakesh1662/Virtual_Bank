@@ -1,11 +1,11 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, or, Timestamp } from 'firebase/firestore';
-import { format, parseISO } from 'date-fns';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 import {
   Table,
@@ -49,52 +49,71 @@ export default function TransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    // State for separate queries
+    const [sentTransactions, setSentTransactions] = useState<Transaction[]>([]);
+    const [receivedTransactions, setReceivedTransactions] = useState<Transaction[]>([]);
+
     const [dateFilter, setDateFilter] = useState<Date | undefined>();
     const [typeFilter, setTypeFilter] = useState('all');
     const [amountFilter, setAmountFilter] = useState('');
 
-    const fetchTransactions = useCallback(() => {
-        if (!user) return;
-        setIsLoading(true);
-
-        const transactionsRef = collection(db, 'transactions');
-        const q = query(
-            transactionsRef,
-            or(where('senderId', '==', user.uid), where('receiverId', '==', user.uid)),
-            orderBy('timestamp', 'desc')
-        );
-
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const transactionsData = querySnapshot.docs.map(doc => {
-                const data = doc.data();
-                const isSent = data.senderId === user.uid;
-                const transactionTimestamp = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date();
-
-                return {
-                    id: doc.id,
-                    type: isSent ? 'sent' : 'received',
-                    amount: data.amount,
-                    commission: data.commission,
-                    counterparty: isSent ? data.receiverName : data.senderName,
-                    timestamp: transactionTimestamp,
-                    location: data.location,
-                };
-            });
-            setTransactions(transactionsData);
+    useEffect(() => {
+        if (!user) {
             setIsLoading(false);
-        });
+            return;
+        };
 
-        return unsubscribe;
+        setIsLoading(true);
+        const transactionsRef = collection(db, 'transactions');
+        
+        const mapDocToTransaction = (doc: any): Transaction => {
+            const data = doc.data();
+            const isSent = data.senderId === user.uid;
+            const transactionTimestamp = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date();
+
+            return {
+                id: doc.id,
+                type: isSent ? 'sent' : 'received',
+                amount: data.amount,
+                commission: data.commission,
+                counterparty: isSent ? data.receiverName : data.senderName,
+                timestamp: transactionTimestamp,
+                location: data.location,
+            };
+        };
+
+        // Query for sent transactions
+        const sentQuery = query(transactionsRef, where('senderId', '==', user.uid), orderBy('timestamp', 'desc'));
+        const unsubscribeSent = onSnapshot(sentQuery, (snapshot) => {
+            setSentTransactions(snapshot.docs.map(mapDocToTransaction));
+        }, (error) => console.error("Error fetching sent transactions:", error));
+
+        // Query for received transactions
+        const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid), orderBy('timestamp', 'desc'));
+        const unsubscribeReceived = onSnapshot(receivedQuery, (snapshot) => {
+            setReceivedTransactions(snapshot.docs.map(mapDocToTransaction));
+        }, (error) => console.error("Error fetching received transactions:", error));
+
+        return () => {
+            unsubscribeSent();
+            unsubscribeReceived();
+        }
     }, [user]);
 
+    // Effect to combine and sort transactions
     useEffect(() => {
-        const unsubscribe = fetchTransactions();
-        return () => {
-            if (unsubscribe) {
-                unsubscribe();
-            }
-        };
-    }, [fetchTransactions]);
+        const allTransactionsMap = new Map<string, Transaction>();
+        sentTransactions.forEach(tx => allTransactionsMap.set(tx.id, tx));
+        receivedTransactions.forEach(tx => allTransactionsMap.set(tx.id, tx));
+
+        const combined = Array.from(allTransactionsMap.values());
+        combined.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+        
+        setTransactions(combined);
+        if (isLoading) {
+            setIsLoading(false);
+        }
+    }, [sentTransactions, receivedTransactions, isLoading]);
 
     const filteredTransactions = useMemo(() => {
         return transactions.filter(tx => {

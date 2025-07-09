@@ -19,7 +19,6 @@ import {
   onSnapshot,
   limit,
   orderBy,
-  or,
   Timestamp,
 } from 'firebase/firestore';
 
@@ -59,7 +58,7 @@ interface Transaction {
     type: 'sent' | 'received';
     counterparty: string;
     amount: string;
-    date: string;
+    date: Date;
 }
 
 export default function DashboardPage() {
@@ -70,6 +69,10 @@ export default function DashboardPage() {
     const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
+
+    // State for separate sent/received queries
+    const [recentSent, setRecentSent] = useState<Transaction[]>([]);
+    const [recentReceived, setRecentReceived] = useState<Transaction[]>([]);
 
     const form = useForm<z.infer<typeof sendMoneySchema>>({
         resolver: zodResolver(sendMoneySchema),
@@ -88,6 +91,7 @@ export default function DashboardPage() {
         
         setIsLoading(true);
 
+        // Listener for user data
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
             if (doc.exists()) {
@@ -95,40 +99,54 @@ export default function DashboardPage() {
             }
         });
 
+        // Listeners for transactions
         const transactionsRef = collection(db, 'transactions');
-        const q = query(
-            transactionsRef,
-            or(where('senderId', '==', user.uid), where('receiverId', '==', user.uid)),
-            orderBy('timestamp', 'desc'),
-            limit(5)
-        );
+        const mapDocToTransaction = (doc: any): Transaction => {
+            const data = doc.data();
+            const isSent = data.senderId === user.uid;
+            const transactionDate = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date();
+            return {
+                id: doc.id,
+                type: isSent ? 'sent' : 'received',
+                counterparty: isSent ? data.receiverName : data.senderName,
+                amount: data.amount.toFixed(2),
+                date: transactionDate,
+            };
+        };
         
-        const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-            const transactionsData = snapshot.docs.map(doc => {
-                const data = doc.data();
-                const isSent = data.senderId === user.uid;
-                const transactionDate = data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date();
+        const sentQuery = query(transactionsRef, where('senderId', '==', user.uid), orderBy('timestamp', 'desc'), limit(5));
+        const unsubscribeSent = onSnapshot(sentQuery, (snapshot) => {
+            setRecentSent(snapshot.docs.map(mapDocToTransaction));
+        }, (error) => console.error("Error fetching recent sent transactions:", error));
 
-                return {
-                    id: doc.id,
-                    type: isSent ? 'sent' : 'received',
-                    counterparty: isSent ? data.receiverName : data.senderName,
-                    amount: data.amount.toFixed(2),
-                    date: format(transactionDate, 'yyyy-MM-dd'),
-                };
-            });
-            setRecentTransactions(transactionsData);
-            setIsLoading(false); // Data loaded
-        }, (error) => {
-            console.error("Transaction listener error:", error);
-            setIsLoading(false);
-        });
+        const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid), orderBy('timestamp', 'desc'), limit(5));
+        const unsubscribeReceived = onSnapshot(receivedQuery, (snapshot) => {
+            setRecentReceived(snapshot.docs.map(mapDocToTransaction));
+        }, (error) => console.error("Error fetching recent received transactions:", error));
 
         return () => {
             unsubscribeUser();
-            unsubscribeTransactions();
+            unsubscribeSent();
+            unsubscribeReceived();
         };
     }, [user]);
+
+    // Effect to combine transaction results
+    useEffect(() => {
+        const allTransactionsMap = new Map<string, Transaction>();
+        recentSent.forEach(tx => allTransactionsMap.set(tx.id, tx));
+        recentReceived.forEach(tx => allTransactionsMap.set(tx.id, tx));
+
+        const combined = Array.from(allTransactionsMap.values());
+        combined.sort((a, b) => b.date.getTime() - a.date.getTime());
+        
+        setRecentTransactions(combined.slice(0, 5));
+        
+        if (isLoading) {
+            setIsLoading(false);
+        }
+    }, [recentSent, recentReceived, isLoading]);
+
 
     async function handleSendMoney(values: z.infer<typeof sendMoneySchema>) {
         if (!user || !userData) return;
@@ -274,7 +292,7 @@ export default function DashboardPage() {
                                             <div className="font-medium">{tx.counterparty}</div>
                                         </TableCell>
                                         <TableCell className="text-right">₹{tx.amount}</TableCell>
-                                        <TableCell className="hidden sm:table-cell">{tx.date}</TableCell>
+                                        <TableCell className="hidden sm:table-cell">{format(tx.date, 'yyyy-MM-dd')}</TableCell>
                                         <TableCell className="text-right">
                                             <Badge variant={tx.type === 'sent' ? 'destructive' : 'secondary'} className="capitalize">
                                                 {tx.type}
