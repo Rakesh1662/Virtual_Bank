@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, query } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
 
@@ -115,6 +115,12 @@ export function RegisterForm() {
     setIsSubmitting(true);
     
     try {
+        // Check if this is the first user
+        const usersCollectionRef = collection(db, 'users');
+        const usersQuery = query(usersCollectionRef);
+        const querySnapshot = await getDocs(usersQuery);
+        const isFirstUser = querySnapshot.empty;
+
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
 
@@ -141,12 +147,12 @@ export function RegisterForm() {
             createdAt: new Date(),
             accountBalance: 10000,
             commissionPaid: 0,
-            role: 'user', // Default role
+            role: isFirstUser ? 'admin' : 'user',
         });
 
         toast({
             title: 'Registration Successful',
-            description: 'Your account has been created. Please log in.',
+            description: `Your account has been created. ${isFirstUser ? 'You are now an administrator.' : 'Please log in.'}`,
         });
         router.push('/login');
 
