@@ -64,7 +64,6 @@ export default function DashboardPage() {
     const { user, userData } = useAuth();
     const { toast } = useToast();
     
-    const [displayData, setDisplayData] = useState<UserData | null>(null);
     const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
@@ -99,58 +98,41 @@ export default function DashboardPage() {
             return;
         }
         
-        if (userData) {
-            setIsLoading(true);
-
-            const userDocRef = doc(db, 'users', user.uid);
-            const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
-                if (doc.exists()) {
-                    setDisplayData(doc.data() as UserData);
-                }
-            });
-
-            const transactionsRef = collection(db, 'transactions');
-            const mapDocToTransaction = (doc: any): Transaction | null => {
-                const data = doc.data();
-                if (!data.timestamp || typeof data.timestamp.toDate !== 'function') {
-                    console.warn(`Skipping transaction with invalid timestamp: ${doc.id}`);
-                    return null;
-                }
-                const isSent = data.senderId === user.uid;
-                const transactionDate = (data.timestamp as Timestamp).toDate();
-                return {
-                    id: doc.id,
-                    type: isSent ? 'sent' : 'received',
-                    counterparty: isSent ? data.receiverName : data.senderName,
-                    amount: data.amount.toFixed(2),
-                    date: transactionDate,
-                };
+        const transactionsRef = collection(db, 'transactions');
+        const mapDocToTransaction = (doc: any): Transaction | null => {
+            const data = doc.data();
+            if (!data.timestamp || typeof data.timestamp.toDate !== 'function') {
+                console.warn(`Skipping transaction with invalid timestamp: ${doc.id}`);
+                return null;
+            }
+            const isSent = data.senderId === user.uid;
+            const transactionDate = (data.timestamp as Timestamp).toDate();
+            return {
+                id: doc.id,
+                type: isSent ? 'sent' : 'received',
+                counterparty: isSent ? data.receiverName : data.senderName,
+                amount: data.amount.toFixed(2),
+                date: transactionDate,
             };
-            
-            const sentQuery = query(transactionsRef, where('senderId', '==', user.uid));
-            const unsubscribeSent = onSnapshot(sentQuery, (snapshot) => {
-                setRecentSent(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
-            }, (error) => console.error("Error fetching recent sent transactions:", error));
+        };
+        
+        const sentQuery = query(transactionsRef, where('senderId', '==', user.uid));
+        const unsubscribeSent = onSnapshot(sentQuery, (snapshot) => {
+            setRecentSent(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
+        }, (error) => console.error("Error fetching recent sent transactions:", error));
 
-            const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid));
-            const unsubscribeReceived = onSnapshot(receivedQuery, (snapshot) => {
-                setRecentReceived(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
-            }, (error) => console.error("Error fetching recent received transactions:", error));
+        const receivedQuery = query(transactionsRef, where('receiverId', '==', user.uid));
+        const unsubscribeReceived = onSnapshot(receivedQuery, (snapshot) => {
+            setRecentReceived(snapshot.docs.map(mapDocToTransaction).filter(Boolean) as Transaction[]);
+        }, (error) => console.error("Error fetching recent received transactions:", error));
 
-            return () => {
-                unsubscribeUser();
-                unsubscribeSent();
-                unsubscribeReceived();
-            };
-        } else {
-            setIsLoading(false);
-        }
-    }, [user, userData]);
+        return () => {
+            unsubscribeSent();
+            unsubscribeReceived();
+        };
+    }, [user]);
 
     useEffect(() => {
-        if (!userData) { 
-            return;
-        }
         const allTransactionsMap = new Map<string, Transaction>();
         recentSent.forEach(tx => allTransactionsMap.set(tx.id, tx));
         recentReceived.forEach(tx => allTransactionsMap.set(tx.id, tx));
@@ -163,7 +145,7 @@ export default function DashboardPage() {
         if (isLoading) {
             setIsLoading(false);
         }
-    }, [recentSent, recentReceived, userData, isLoading]);
+    }, [recentSent, recentReceived, isLoading]);
 
     async function handleInitializeAccount() {
         if (!user) {
@@ -380,7 +362,7 @@ export default function DashboardPage() {
                         <Wallet className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">₹{displayData?.accountBalance?.toFixed(2) ?? '0.00'}</div>
+                        <div className="text-2xl font-bold">₹{userData?.accountBalance?.toFixed(2) ?? '0.00'}</div>
                         <p className="text-xs text-muted-foreground">
                             Available to spend
                         </p>
@@ -394,7 +376,7 @@ export default function DashboardPage() {
                         <Landmark className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">₹{displayData?.commissionPaid?.toFixed(2) ?? '0.00'}</div>
+                        <div className="text-2xl font-bold">₹{userData?.commissionPaid?.toFixed(2) ?? '0.00'}</div>
                         <p className="text-xs text-muted-foreground">
                             Total commission on transfers
                         </p>
