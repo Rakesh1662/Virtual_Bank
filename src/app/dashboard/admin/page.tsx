@@ -79,15 +79,22 @@ export default function AdminPage() {
                         .map(doc => doc.data() as UserData)
                         .filter(user => user.uid !== userData.uid); // Filter out the current admin
                     setAllUsers(usersList);
-                } catch (error) {
+                } catch (error: any) {
                     console.error("Failed to fetch users:", error);
+                    toast({
+                        variant: "destructive",
+                        title: "Error Fetching Users",
+                        description: error.code === 'permission-denied' 
+                            ? "Permission denied. Check Firestore security rules to allow admins to read user documents."
+                            : "An unexpected error occurred.",
+                    });
                 } finally {
                     setIsFetching(false);
                 }
             };
             fetchUsers();
         }
-    }, [userData]);
+    }, [userData, toast]);
     
     useEffect(() => {
         if (selectedUser) {
@@ -216,7 +223,12 @@ export default function AdminPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center h-24">No other users found.</TableCell>
+                                        <TableCell colSpan={6} className="text-center h-24">
+                                            No other users found.
+                                            <p className="text-sm text-muted-foreground font-normal">
+                                                Try creating a new user account to see it appear in this list.
+                                            </p>
+                                        </TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
