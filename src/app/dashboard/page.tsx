@@ -49,7 +49,7 @@ import { format } from 'date-fns';
 const sendMoneySchema = z.object({
   recipientMobile: z.string().regex(/^\d{10}$/, { message: "Must be a 10-digit mobile number." }),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }).min(1, { message: "Amount must be at least ₹1." }),
-  mpin: z.string().length(4, { message: "MPIN must be exactly 4 digits." }),
+  mpin: z.string().regex(/^\d{4}$/, { message: "MPIN must be 4 digits." }),
 });
 
 interface Transaction {
@@ -246,14 +246,14 @@ export default function DashboardPage() {
         if (!user || !userData) return;
         setIsSending(true);
 
-        if (values.mpin !== userData.mpin) {
-            let description = 'Incorrect MPIN.';
+        if (String(values.mpin) !== String(userData.mpin)) {
+            let description = 'The MPIN you entered is incorrect.';
             if (userData.mpin === '0000') {
-                description = "Incorrect MPIN. If you recently initialized your account, your default MPIN is '0000'. We strongly recommend changing it in the Settings page."
+                description = "Incorrect MPIN. Your default MPIN is '0000'. We strongly recommend changing it on the Settings page."
             }
             toast({ 
                 variant: 'destructive', 
-                title: 'Error', 
+                title: 'Incorrect MPIN', 
                 description: description 
             });
             setIsSending(false);
@@ -514,7 +514,7 @@ export default function DashboardPage() {
                                 </div>
 
                                 <FormField control={form.control} name="mpin" render={({ field }) => (
-                                    <FormItem><Label>Your MPIN</Label><FormControl><Input type="password" placeholder="••••" maxLength={4} disabled={isSending} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><Label>Your MPIN</Label><FormControl><Input type="password" placeholder="••••" maxLength={4} {...field} disabled={isSending} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             </CardContent>
                             <CardFooter>
