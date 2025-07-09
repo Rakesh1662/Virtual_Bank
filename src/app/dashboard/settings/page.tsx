@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/context/auth-context';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { updateProfile, reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth';
 
 import { Button } from '@/components/ui/button';
@@ -44,9 +44,8 @@ const mpinFormSchema = z.object({
 
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
   const [isProfileSubmitting, setIsProfileSubmitting] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
   const [isMpinSubmitting, setIsMpinSubmitting] = useState(false);
@@ -71,35 +70,16 @@ export default function SettingsPage() {
     defaultValues: { currentMpin: '', newMpin: '', confirmMpin: '' },
   });
 
-  // Fetch user data
+  // Populate form with user data from context
   useEffect(() => {
-    async function fetchUserData() {
-      if (user) {
-        try {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            profileForm.reset({
-              fullName: userData.fullName || '',
-              email: userData.email || '',
-              address: userData.address || '',
-            });
-          }
-        } catch (error) {
-            console.error("Failed to fetch user data:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Could not load your profile data.',
-            });
-        } finally {
-            setLoading(false);
-        }
-      }
+    if (userData) {
+      profileForm.reset({
+        fullName: userData.fullName || '',
+        email: userData.email || '',
+        address: userData.address || '',
+      });
     }
-    fetchUserData();
-  }, [user, profileForm, toast]);
+  }, [userData, profileForm]);
 
   // Handlers
   async function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
@@ -146,18 +126,16 @@ export default function SettingsPage() {
   }
 
   async function onMpinSubmit(values: z.infer<typeof mpinFormSchema>) {
-    if(!user) return;
+    if(!user || !userData) return;
     setIsMpinSubmitting(true);
     try {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (!userDoc.exists() || userDoc.data().mpin !== values.currentMpin) {
+        if (userData.mpin !== values.currentMpin) {
             toast({ variant: "destructive", title: "Error", description: "Your current MPIN is incorrect." });
             setIsMpinSubmitting(false);
             return;
         }
 
+        const userDocRef = doc(db, "users", user.uid);
         await updateDoc(userDocRef, { mpin: values.newMpin });
         toast({ title: "Success", description: "Your MPIN has been updated." });
         mpinForm.reset();
@@ -169,7 +147,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading) {
+  if (authLoading) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
