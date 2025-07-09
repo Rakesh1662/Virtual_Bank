@@ -14,7 +14,6 @@ import {
   getDocs,
   doc,
   runTransaction,
-  addDoc,
   serverTimestamp,
   onSnapshot,
   Timestamp,
@@ -261,40 +260,67 @@ export default function DashboardPage() {
                 return;
             }
 
-            const receiverDoc = querySnapshot.docs[0];
-            const receiverId = receiverDoc.id;
-            const receiverData = receiverDoc.data();
+            const receiverDocSnapshot = querySnapshot.docs[0];
+            const receiverId = receiverDocSnapshot.id;
+
+            // Find an admin user to credit the commission to
+            const adminQuery = query(usersRef, where('role', '==', 'admin'), limit(1));
+            const adminSnapshot = await getDocs(adminQuery);
+            const adminUserDoc = adminSnapshot.docs.length > 0 ? adminSnapshot.docs[0] : null;
+
 
             await runTransaction(db, async (transaction) => {
                 const senderDocRef = doc(db, 'users', user.uid);
                 const receiverDocRef = doc(db, 'users', receiverId);
-
-                const senderDoc = await transaction.get(senderDocRef);
-                const senderData = senderDoc.data();
+                const adminDocRef = adminUserDoc ? doc(db, 'users', adminUserDoc.id) : null;
                 
-                if (!senderDoc.exists() || (senderData?.accountBalance ?? 0) < totalDeduction) {
+                // Read all documents first
+                const senderDoc = await transaction.get(senderDocRef);
+                const receiverDoc = await transaction.get(receiverDocRef);
+                
+                // Validate documents
+                if (!senderDoc.exists()) {
+                    throw new Error("Your user document does not exist.");
+                }
+                if (!receiverDoc.exists()) {
+                    throw new Error("Recipient's user document does not exist.");
+                }
+                if ((senderDoc.data().accountBalance ?? 0) < totalDeduction) {
                     throw new Error("Insufficient balance.");
                 }
 
-                // Update balances
-                const newSenderBalance = (senderData?.accountBalance ?? 0) - totalDeduction;
-                const newCommissionPaid = (senderData?.commissionPaid ?? 0) + commission;
-                
+                const senderData = senderDoc.data();
+                const receiverData = receiverDoc.data();
+
+                // 1. Update sender
+                const newSenderBalance = (senderData.accountBalance ?? 0) - totalDeduction;
+                const newCommissionPaid = (senderData.commissionPaid ?? 0) + commission;
                 transaction.update(senderDocRef, { 
                     accountBalance: newSenderBalance,
                     commissionPaid: newCommissionPaid,
                 });
 
+                // 2. Update receiver
                 const newReceiverBalance = (receiverData.accountBalance ?? 0) + transferAmount;
                 transaction.update(receiverDocRef, { 
                     accountBalance: newReceiverBalance 
                 });
 
-                // Record transaction
-                const transactionsColRef = collection(db, 'transactions');
-                await addDoc(transactionsColRef, {
+                // 3. Update admin (if exists)
+                if (adminDocRef) {
+                    const adminDoc = await transaction.get(adminDocRef);
+                    if (adminDoc.exists()) {
+                        const adminData = adminDoc.data();
+                        const newAdminBalance = (adminData.accountBalance ?? 0) + commission;
+                        transaction.update(adminDocRef, { accountBalance: newAdminBalance });
+                    }
+                }
+
+                // 4. Record transaction using transaction.set
+                const newTransactionRef = doc(collection(db, 'transactions'));
+                transaction.set(newTransactionRef, {
                     senderId: user.uid,
-                    senderName: userData.fullName,
+                    senderName: senderData.fullName,
                     receiverId: receiverId,
                     receiverName: receiverData.fullName,
                     amount: transferAmount,
@@ -304,7 +330,7 @@ export default function DashboardPage() {
                 });
             });
 
-            toast({ title: 'Success', description: `₹${transferAmount} sent to ${receiverData.fullName}.` });
+            toast({ title: 'Success', description: `₹${transferAmount} sent to ${receiverDocSnapshot.data().fullName}.` });
             form.reset();
         } catch (error: any) {
             console.error("Transaction failed:", error);
