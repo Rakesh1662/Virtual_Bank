@@ -1,7 +1,8 @@
+
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { auth, db, isFirebaseConfigured } from '@/lib/firebase';
 import { doc, onSnapshot, DocumentData } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
@@ -18,6 +19,7 @@ export interface UserData extends DocumentData {
   accountBalance: number;
   commissionPaid: number;
   role: 'user' | 'admin';
+  accountStatus: 'active' | 'inactive';
 }
 
 interface AuthContextType {
@@ -46,7 +48,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribeSnapshot = onSnapshot(userDocRef, (doc) => {
           if (doc.exists()) {
-            setUserData(doc.data() as UserData);
+            const data = doc.data() as UserData;
+            // If user is marked inactive, sign them out immediately.
+            if (data.accountStatus === 'inactive' && auth.currentUser) {
+              signOut(auth);
+              setUserData(null);
+            } else {
+              setUserData(data);
+            }
           } else {
             setUserData(null);
           }

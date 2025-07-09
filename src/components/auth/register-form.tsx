@@ -145,6 +145,7 @@ export function RegisterForm() {
             accountBalance: 10000,
             commissionPaid: 0,
             role: isAdmin ? 'admin' : 'user',
+            accountStatus: 'active',
         });
 
         toast({

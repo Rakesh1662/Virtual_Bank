@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -49,7 +50,6 @@ export default function SettingsPage() {
   const [isProfileSubmitting, setIsProfileSubmitting] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
   const [isMpinSubmitting, setIsMpinSubmitting] = useState(false);
-  const [isBecomingAdmin, setIsBecomingAdmin] = useState(false);
   
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
@@ -147,22 +147,6 @@ export default function SettingsPage() {
         toast({ variant: "destructive", title: "Error", description: "Failed to update MPIN." });
     } finally {
         setIsMpinSubmitting(false);
-    }
-  }
-
-  async function handleBecomeAdmin() {
-    if (!user || !db) return;
-    setIsBecomingAdmin(true);
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      await setDoc(userDocRef, { role: 'admin' }, { merge: true });
-      toast({ title: 'Success!', description: 'You are now an administrator. The admin panel is now available.' });
-      // The onSnapshot listener in AuthContext will handle the state update automatically.
-    } catch (error) {
-      console.error("Failed to become admin:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not grant admin privileges. Check Firestore rules.' });
-    } finally {
-      setIsBecomingAdmin(false);
     }
   }
   
@@ -326,24 +310,6 @@ export default function SettingsPage() {
           </Form>
         </CardContent>
       </Card>
-
-      {userData?.role !== 'admin' && (
-        <Card>
-            <CardHeader>
-                <CardTitle>Developer Tools</CardTitle>
-                <CardDescription>Grant yourself administrator privileges.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                    Click the button below to update your role to 'admin'. This will give you access to the Admin Panel. This card will disappear after you become an admin.
-                </p>
-                <Button onClick={handleBecomeAdmin} disabled={isBecomingAdmin}>
-                    {isBecomingAdmin && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Become Admin
-                </Button>
-            </CardContent>
-        </Card>
-      )}
 
       <Card>
           <CardHeader>
